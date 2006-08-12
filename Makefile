@@ -24,9 +24,9 @@ else
 all: target
 endif
 
-target : $(TARGET)
-
 include config/makefile.conf
+
+target : $(STAGE) $(TARGET)
 
 # VERSION has to come from the command line
 RELEASE=axTLS-$(VERSION)
@@ -45,11 +45,18 @@ ifdef CONFIG_SAMPLES
 	$(MAKE) -C samples
 endif
 
+$(STAGE) :
+	@mkdir -p $(STAGE)
+
+$(PREFIX) :
+	@mkdir -p $(PREFIX)/lib
+	@mkdir -p $(PREFIX)/bin
+
 release:
 	$(MAKE) -C config/scripts/config clean
 	-$(MAKE) clean
-	-@rm config/.* config/config.h
-	-@rm config/*.msi config/*.back.aip
+	-@rm config/*.msi config/*.back.aip config/config.h config/.config*
+	@rm -fr $(STAGE)
 	cd ../; tar cvfz $(RELEASE).tar.gz --wildcards-match-slash --exclude .svn axTLS; cd -;
 
 docs:
@@ -59,20 +66,22 @@ docs:
 win32_demo:
 	-@rm -fr ../axTLS.release_test > /dev/null 2>&1
 	$(MAKE) win32releaseconf
-	cd ../; zip $(RELEASE).zip \
-        ./axTLS/awhttpd.exe \
-        ./axTLS/axssl.exe \
-        ./axTLS/axtls.dll \
-        ./axTLS/axtls.lib \
-        ./axTLS/axtls.static.lib \
-        ./axTLS/axtlsj.dll \
-        ./axTLS/axssl.csharp.exe \
-        ./axTLS/axssl.vbnet.exe \
-        ./axTLS/axtls.jar \
-        ./axTLS/www/* \
-        ./axTLS/www/crypto_files/* \
-        ./axTLS/www/test_dir/*; \
-    unzip -d axTLS.release_test $(RELEASE).zip; cd -;
+
+install: $(PREFIX) all
+	cp --no-dereference $(STAGE)/libax* $(PREFIX)/lib
+	chmod 755 $(PREFIX)/lib/libax* 
+	-@install -m 755 $(STAGE)/ax* $(PREFIX)/bin > /dev/null 2>&1
+	-@install -m 755 $(STAGE)/axtlsp.pm `perl -e 'use Config; print $$Config{installarchlib};'` > /dev/null 2>&1
+	-@install -m 755 $(STAGE)/awhttpd* $(PREFIX)/bin > /dev/null 2>&1
+
+installclean:
+	-@rm $(PREFIX)/lib/libax* > /dev/null 2>&1
+	-@rm $(PREFIX)/bin/ax* > /dev/null 2>&1
+	-@rm $(PREFIX)/bin/awhttpd* > /dev/null 2>&1
+	-@rm `perl -e 'use Config; print $$Config{installarchlib};'`/axtlsp.pm > /dev/null 2>&1
+
+test:
+	cd $(STAGE); ssltest; ../ssl/test/test_axssl.sh; cd -;
 
 # tidy up things
 clean::
@@ -132,3 +141,7 @@ win32releaseconf: config/scripts/config/conf
 	@./config/scripts/config/conf -D config/win32config $(CONFIG_CONFIG_IN) > /dev/null
 	$(MAKE)
 
+# The special linux release configuration
+linuxconf: config/scripts/config/conf
+	@./config/scripts/config/conf -D config/linuxconfig $(CONFIG_CONFIG_IN) > /dev/null
+	$(MAKE)
