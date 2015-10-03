@@ -32,10 +32,20 @@
  * Some primitive asn methods for extraction ASN.1 data.
  */
 
+#include "config.h"
+#ifndef CONFIG_PLATFORM_BTRON
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#else
+#include <basic.h>
+#include <bstdio.h>
+#include <bstdlib.h>
+#include <bstring.h>
+#include <btron/clk.h>
+#include <btron/datetime.h>
+#endif
 #include "os_port.h"
 #include "crypto.h"
 #include "crypto_misc.h"
@@ -227,6 +237,7 @@ int asn1_get_private_key(const uint8_t *buf, int len, RSA_CTX **rsa_ctx)
 /**
  * Get the time of a certificate. Ignore hours/minutes/seconds.
  */
+#ifndef CONFIG_PLATFORM_BTRON
 static int asn1_get_utc_time(const uint8_t *buf, int *offset, time_t *t)
 {
     int ret = X509_NOT_OK, len, t_offset, abs_year;
@@ -289,6 +300,70 @@ static int asn1_get_utc_time(const uint8_t *buf, int *offset, time_t *t)
 
     return ret;
 }
+#else
+static int asn1_get_utc_time(const uint8_t *buf, int *offset, STIME *t)
+{
+    int ret = X509_NOT_OK, len, t_offset, abs_year;
+    DATE_TIM tm;
+
+    /* see http://tools.ietf.org/html/rfc5280#section-4.1.2.5 */
+    if (buf[*offset] == ASN1_UTC_TIME)
+    {
+        (*offset)++;
+
+        len = get_asn1_length(buf, offset);
+        t_offset = *offset;
+
+        memset(&tm, 0, sizeof(DATE_TIM));
+        tm.d_year = (buf[t_offset] - '0')*10 + (buf[t_offset+1] - '0');
+
+        if (tm.d_year <= 50)    /* 1951-2050 thing */
+        {
+            tm.d_year += 100;
+        }
+
+        tm.d_month = (buf[t_offset+2] - '0')*10 + (buf[t_offset+3] - '0');
+        tm.d_day = (buf[t_offset+4] - '0')*10 + (buf[t_offset+5] - '0');
+        set_tod(&tm, t, False);
+        *offset += len;
+        ret = X509_OK;
+    }
+    else if (buf[*offset] == ASN1_GENERALIZED_TIME)
+    {
+        (*offset)++;
+
+        len = get_asn1_length(buf, offset);
+        t_offset = *offset;
+
+        memset(&tm, 0, sizeof(DATE_TIM));
+        abs_year = ((buf[t_offset] - '0')*1000 +
+                (buf[t_offset+1] - '0')*100 + (buf[t_offset+2] - '0')*10 +
+                (buf[t_offset+3] - '0'));
+
+        if (abs_year <= 1901)
+        {
+          tm.d_year = 1;
+          tm.d_month = 1;
+          tm.d_day = 1;
+        }
+        else
+        {
+          tm.d_year = abs_year - 1900;
+          tm.d_month = (buf[t_offset+4] - '0')*10 + (buf[t_offset+5] - '0');
+          tm.d_day = (buf[t_offset+6] - '0')*10 + (buf[t_offset+7] - '0');
+          tm.d_hour = (buf[t_offset+8] - '0')*10 + (buf[t_offset+9] - '0');
+          tm.d_min = (buf[t_offset+10] - '0')*10 + (buf[t_offset+11] - '0');
+          tm.d_sec = (buf[t_offset+12] - '0')*10 + (buf[t_offset+13] - '0');
+        }
+
+        set_tod(&tm, t, False);
+        *offset += len;
+        ret = X509_OK;
+    }
+
+    return ret;
+}
+#endif
 
 /**
  * Get the version type of a certificate (which we don't actually care about)

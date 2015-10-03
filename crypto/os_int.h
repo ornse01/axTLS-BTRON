@@ -50,6 +50,19 @@ typedef UINT32 uint32_t;
 typedef INT32 int32_t;
 typedef UINT64 uint64_t;
 typedef INT64 int64_t;
+
+#elif defined(CONFIG_PLATFORM_BTRON)
+#include <basic.h>
+
+typedef UB uint8_t;
+typedef B int8_t;
+typedef UH uint16_t;
+typedef H int16_t;
+typedef UW uint32_t;
+typedef W int32_t;
+typedef unsigned long long uint64_t;
+typedef long long int64_t;
+
 #else   /* Not Win32 */
 
 #ifdef CONFIG_PLATFORM_SOLARIS

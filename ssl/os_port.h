@@ -41,9 +41,13 @@
 extern "C" {
 #endif
 
-#include "os_int.h"
 #include "config.h"
+#include "os_int.h"
+#ifndef CONFIG_PLATFORM_BTRON
 #include <stdio.h>
+#else
+#include <bstdio.h>
+#endif
 
 #if defined(WIN32)
 #define STDCALL                 __stdcall
@@ -122,6 +126,24 @@ EXP_FUNC void STDCALL gettimeofday(struct timeval* t,void* timezone);
 EXP_FUNC int STDCALL strcasecmp(const char *s1, const char *s2);
 EXP_FUNC int STDCALL getdomainname(char *buf, int buf_size);
 
+#elif defined(CONFIG_PLATFORM_BTRON)
+
+#include <basic.h>
+#include <btron/bsocket.h>
+
+#define SOCKET_READ(A,B,C)      so_read(A,B,C)
+#define SOCKET_WRITE(A,B,C)     so_write(A,B,C)
+#define SOCKET_CLOSE(A)         if (A >= 0) so_close(A)
+#define TTY_FLUSH()
+#define select(A,B,C,D,E)       so_select(A,B,C,D,E)
+
+Inline unsigned long long be64toh(unsigned long long x)
+{
+    return ((unsigned long long)ntohl((UW)x)) << 32
+        | (unsigned long long)ntohl((UW)x);
+
+}
+
 #else   /* Not Win32 */
 
 #include <unistd.h>
@@ -142,6 +164,8 @@ EXP_FUNC int STDCALL getdomainname(char *buf, int buf_size);
 #define SOCKET_WRITE(A,B,C)     write(A,B,C)
 #define SOCKET_CLOSE(A)         if (A >= 0) close(A)
 #define TTY_FLUSH()
+
+#define usleep(x)  dly_tsk((x)/1000)
 
 #ifndef be64toh
 #define be64toh(x) __be64_to_cpu(x)
@@ -175,6 +199,13 @@ void exit_now(const char *format, ...);
 #define SSL_CTX_MUTEX_DESTROY(A)    CloseHandle(A)
 #define SSL_CTX_LOCK(A)             WaitForSingleObject(A, INFINITE)
 #define SSL_CTX_UNLOCK(A)           ReleaseMutex(A)
+#elif defined(CONFIG_PLATFORM_BTRON)
+#include <btron/taskcomm.h>
+#define SSL_CTX_MUTEX_TYPE          ID
+#define SSL_CTX_MUTEX_INIT(A)       A=cre_sem(1, SEM_SYNC|DELEXIT)
+#define SSL_CTX_MUTEX_DESTROY(A)    del_sem(A)
+#define SSL_CTX_LOCK(A)             wai_sem(A, T_FOREVER)
+#define SSL_CTX_UNLOCK(A)           sig_sem(A)
 #else 
 #include <pthread.h>
 #define SSL_CTX_MUTEX_TYPE          pthread_mutex_t

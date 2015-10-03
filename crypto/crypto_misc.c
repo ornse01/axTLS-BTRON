@@ -32,10 +32,21 @@
  * Some misc. routines to help things out
  */
 
+#include "config.h"
+#ifndef CONFIG_PLATFORM_BTRON
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
+#else
+#include <basic.h>
+#include <bstdlib.h>
+#include <bstring.h>
+#include <bstdarg.h>
+#include <bstdio.h>
+#include <btron/clk.h>
+#include <btron/event.h>
+#endif
 #include "os_port.h"
 #include "crypto_misc.h"
 #ifdef CONFIG_WIN32_USE_CRYPTO_LIB
@@ -48,7 +59,11 @@ static int rng_fd = -1;
 static HCRYPTPROV gCryptProv;
 #endif
 
-#if (!defined(CONFIG_USE_DEV_URANDOM) && !defined(CONFIG_WIN32_USE_CRYPTO_LIB))
+#if defined(CONFIG_PLATFORM_BTRON)
+/* change to processor registers as appropriate */
+#define ENTROPY_POOL_SIZE 32
+static uint8_t entropy_pool[ENTROPY_POOL_SIZE];
+#elif (!defined(CONFIG_USE_DEV_URANDOM) && !defined(CONFIG_WIN32_USE_CRYPTO_LIB))
 /* change to processor registers as appropriate */
 #define ENTROPY_POOL_SIZE 32
 #define ENTROPY_COUNTER1 ((((uint64_t)tv.tv_sec)<<32) | tv.tv_usec)
@@ -59,6 +74,7 @@ static uint8_t entropy_pool[ENTROPY_POOL_SIZE];
 const char * const unsupported_str = "Error: Feature not supported\n";
 
 #ifndef CONFIG_SSL_SKELETON_MODE
+#ifndef CONFIG_PLATFORM_BTRON /* FIXME */
 /** 
  * Retrieve a file and put it into memory
  * @return The size of the file, or -1 on failure.
@@ -93,6 +109,7 @@ int get_file(const char *filename, uint8_t **buf)
     fclose(stream);
     return filesize;
 }
+#endif
 #endif
 
 /**
@@ -133,7 +150,7 @@ EXP_FUNC void STDCALL RNG_initialize()
  */
 EXP_FUNC void STDCALL RNG_custom_init(const uint8_t *seed_buf, int size)
 {
-#if defined(WIN32) || defined(CONFIG_WIN32_USE_CRYPTO_LIB)
+#if defined(WIN32) || defined(CONFIG_WIN32_USE_CRYPTO_LIB) || defined(CONFIG_PLATFORM_BTRON)
     int i;
 
     for (i = 0; i < ENTROPY_POOL_SIZE && i < size; i++)
@@ -165,6 +182,40 @@ EXP_FUNC int STDCALL get_random(int num_rand_bytes, uint8_t *rand_data)
 #elif defined(WIN32) && defined(CONFIG_WIN32_USE_CRYPTO_LIB)
     /* use Microsoft Crypto Libraries */
     CryptGenRandom(gCryptProv, num_rand_bytes, rand_data);
+#elif defined(CONFIG_PLATFORM_BTRON)
+    RC4_CTX rng_ctx;
+    MD5_CTX rng_digest_ctx;
+    uint8_t digest[MD5_SIZE];
+    int t1, t2, rdtsc1, rdtsc2, i;
+    int *ep;
+
+    get_etm((UW*)&t1);
+    get_tim((UW*)&t2, NULL);
+    Asm("rdtsc" : "=a"(rdtsc1), "=d"(rdtsc2));
+
+    ep = (int*)entropy_pool;
+    ep[0] ^= t1;
+    ep[1] ^= t2;
+    ep[2] ^= rdtsc1;
+    ep[3] ^= rdtsc2;
+
+    /* use a digested version of the entropy pool as a key */
+    MD5_Init(&rng_digest_ctx);
+    MD5_Update(&rng_digest_ctx, entropy_pool, ENTROPY_POOL_SIZE);
+    MD5_Final(digest, &rng_digest_ctx);
+
+    /* come up with the random sequence */
+    RC4_setup(&rng_ctx, digest, MD5_SIZE); /* use as a key */
+    memcpy(rand_data, entropy_pool, num_rand_bytes < ENTROPY_POOL_SIZE ?
+				num_rand_bytes : ENTROPY_POOL_SIZE);
+    RC4_crypt(&rng_ctx, rand_data, rand_data, num_rand_bytes);
+
+    /* move things along */
+    for (i = ENTROPY_POOL_SIZE-1; i >= MD5_SIZE ; i--)
+        entropy_pool[i] = entropy_pool[i-MD5_SIZE];
+
+    /* insert the digest at the start of the entropy pool */
+    memcpy(entropy_pool, digest, MD5_SIZE);
 #else   /* nothing else to use, so use a custom RNG */
     /* The method we use when we've got nothing better. Use RC4, time 
        and a couple of random seeds to generate a random sequence */

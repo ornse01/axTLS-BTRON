@@ -59,9 +59,17 @@
  * -v1 PBE-SHA1-RC4-128 -out axTLS.encrypted.p8
  */
 
+#include "config.h"
+#ifndef CONFIG_PLATFORM_BTRON
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#else
+#include <basic.h>
+#include <bstdlib.h>
+#include <bstring.h>
+#include <bstdio.h>
+#endif
 #include "os_port.h"
 #include "ssl.h"
 

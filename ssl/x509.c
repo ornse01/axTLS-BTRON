@@ -34,10 +34,19 @@
  * Certificate processing.
  */
 
+#include "config.h"
+#ifndef CONFIG_PLATFORM_BTRON
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#else
+#include <basic.h>
+#include <bstdio.h>
+#include <bstdlib.h>
+#include <bstring.h>
+#include <btron/clk.h>
+#endif
 #include "os_port.h"
 #include "crypto_misc.h"
 
@@ -352,7 +361,11 @@ int x509_verify(const CA_CERT_CTX *ca_cert_ctx, const X509_CTX *cert)
     BI_CTX *ctx = NULL;
     bigint *mod = NULL, *expn = NULL;
     int match_ca_cert = 0;
+#ifndef CONFIG_PLATFORM_BTRON
     struct timeval tv;
+#else
+    STIME tv;
+#endif
     uint8_t is_self_signed = 0;
 
     if (cert == NULL)
@@ -371,6 +384,7 @@ int x509_verify(const CA_CERT_CTX *ca_cert_ctx, const X509_CTX *cert)
         expn = cert->rsa_ctx->e;
     }
 
+#ifndef CONFIG_PLATFORM_BTRON
     gettimeofday(&tv, NULL);
 
     /* check the not before date */
@@ -386,6 +400,23 @@ int x509_verify(const CA_CERT_CTX *ca_cert_ctx, const X509_CTX *cert)
         ret = X509_VFY_ERROR_EXPIRED;
         goto end_verify;
     }
+#else
+    get_tim(&tv, NULL);
+
+    /* check the not before date */
+    if (tv < cert->not_before)
+    {
+        ret = X509_VFY_ERROR_NOT_YET_VALID;
+        goto end_verify;
+    }
+
+    /* check the not after date */
+    if (tv > cert->not_after)
+    {
+        ret = X509_VFY_ERROR_EXPIRED;
+        goto end_verify;
+    }
+#endif
 
     next_cert = cert->next;
 

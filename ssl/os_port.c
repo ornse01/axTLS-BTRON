@@ -33,10 +33,18 @@
  *
  * OS specific functions.
  */
+#include "config.h"
+#ifndef CONFIG_PLATFORM_BTRON
 #include <time.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <stdarg.h>
+#else
+#include <basic.h>
+#include <bstdlib.h>
+#include <berrno.h>
+#include <bstdarg.h>
+#endif
 #include "os_port.h"
 
 #ifdef WIN32
@@ -151,7 +159,11 @@ void exit_now(const char *format, ...)
     va_list argp;
 
     va_start(argp, format);
+#ifndef CONFIG_PLATFORM_BTRON
     vfprintf(stderr, format, argp);
+#else
+    vprintf(format, argp);
+#endif
     va_end(argp);
     abort();
 }

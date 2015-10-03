@@ -67,7 +67,9 @@
 extern "C" {
 #endif
 
+#ifndef CONFIG_PLATFORM_BTRON
 #include <time.h>
+#endif
 
 /* need to predefine before ssl_lib.h gets to it */
 #define SSL_SESSION_ID_SIZE                     32

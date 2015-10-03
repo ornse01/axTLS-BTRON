@@ -28,10 +28,19 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
+#ifndef CONFIG_PLATFORM_BTRON
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <stdio.h>
+#else
+#include <basic.h>
+#include <bstdlib.h>
+#include <bstring.h>
+#include <bstdio.h>
+#include <btron/clk.h>
+#endif
 #include "os_port.h"
 #include "ssl.h"
 
@@ -170,10 +179,19 @@ int do_client_connect(SSL *ssl)
  */
 static int send_client_hello(SSL *ssl)
 {
+#ifndef CONFIG_PLATFORM_BTRON
     uint8_t *buf = ssl->bm_data;
     time_t tm = time(NULL);
     uint8_t *tm_ptr = &buf[6]; /* time will go here */
     int i, offset;
+#else
+    uint8_t *buf = ssl->bm_data;
+    STIME tm;
+    uint8_t *tm_ptr = &buf[6]; /* time will go here */
+    int i, offset;
+
+    get_tim(&tm, NULL);
+#endif
 
     buf[0] = HS_CLIENT_HELLO;
     buf[1] = 0;

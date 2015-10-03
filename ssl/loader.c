@@ -38,9 +38,17 @@
  * openssl genrsa -aes128 -passout pass:abcd -out axTLS.key_aes128.pem 512
  */
 
+#include "config.h"
+#ifndef CONFIG_PLATFORM_BTRON
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#else
+#include <basic.h>
+#include <bstdlib.h>
+#include <bstring.h>
+#include <bstdio.h>
+#endif
 #include "os_port.h"
 #include "ssl.h"
 
@@ -57,7 +65,7 @@ static int ssl_obj_PEM_load(SSL_CTX *ssl_ctx, int obj_type,
 EXP_FUNC int STDCALL ssl_obj_load(SSL_CTX *ssl_ctx, int obj_type, 
                             const char *filename, const char *password)
 {
-#ifndef CONFIG_SSL_SKELETON_MODE
+#if !defined(CONFIG_SSL_SKELETON_MODE) && !defined(CONFIG_PLATFORM_BTRON)
     static const char * const begin = "-----BEGIN";
     int ret = SSL_OK;
     SSLObjLoader *ssl_obj = NULL;

@@ -33,10 +33,18 @@
  * perform its calculations.
  */
 
+#include "config.h"
+#ifndef CONFIG_PLATFORM_BTRON
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <stdlib.h>
+#else
+#include <basic.h>
+#include <bstdio.h>
+#include <bstring.h>
+#include <bstdlib.h>
+#endif
 #include "os_port.h"
 #include "crypto.h"
 

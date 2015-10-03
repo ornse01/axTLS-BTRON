@@ -39,6 +39,9 @@
 extern "C" {
 #endif
 
+#ifdef CONFIG_PLATFORM_BTRON
+#include <basic.h>
+#endif
 #include "crypto.h"
 #include "bigint.h"
 
@@ -70,8 +73,13 @@ struct _x509_ctx
     char *ca_cert_dn[X509_NUM_DN_TYPES];
     char *cert_dn[X509_NUM_DN_TYPES];
     char **subject_alt_dnsnames;
+#ifndef CONFIG_PLATFORM_BTRON
     time_t not_before;
     time_t not_after;
+#else
+    STIME not_before;
+    STIME not_after;
+#endif
     uint8_t *signature;
     uint16_t sig_len;
     uint8_t sig_type;

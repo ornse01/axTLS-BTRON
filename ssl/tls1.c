@@ -32,10 +32,21 @@
  * Common ssl/tlsv1 code to both the client and server implementations.
  */
 
+#include "config.h"
+#ifndef CONFIG_PLATFORM_BTRON
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#else
+#include <basic.h>
+#include <bstring.h>
+#include <bstdlib.h>
+#include <bstdio.h>
+#include <bstdarg.h>
+#include <errcode.h>
+#include <btron/clk.h>
+#endif
 #include "os_port.h"
 #include "ssl.h"
 
@@ -974,6 +985,8 @@ static int send_raw_packet(SSL *ssl, uint8_t protocol)
 
 #ifdef WIN32
             if (GetLastError() != WSAEWOULDBLOCK)
+#elif defined(CONFIG_PLATFORM_BTRON)
+            if (ret != EX_WOULDBLOCK)
 #else
             if (errno != EAGAIN && errno != EWOULDBLOCK)
 #endif
@@ -1208,6 +1221,8 @@ int basic_read(SSL *ssl, uint8_t **in_data)
     {
 #ifdef WIN32
         if (GetLastError() == WSAEWOULDBLOCK)
+#elif defined(CONFIG_PLATFORM_BTRON)
+        if (read_len == EX_WOULDBLOCK)
 #else
         if (errno == EAGAIN || errno == EWOULDBLOCK)
 #endif
@@ -1658,10 +1673,19 @@ void disposable_free(SSL *ssl)
 SSL_SESSION *ssl_session_update(int max_sessions, SSL_SESSION *ssl_sessions[], 
         SSL *ssl, const uint8_t *session_id)
 {
+#ifndef CONFIG_PLATFORM_BTRON
     time_t tm = time(NULL);
     time_t oldest_sess_time = tm;
     SSL_SESSION *oldest_sess = NULL;
     int i;
+#else
+    STIME tm, oldest_sess_time;
+    SSL_SESSION *oldest_sess = NULL;
+    int i;
+
+    get_tim(&tm, NULL);
+    oldest_sess_time = tm;
+#endif
 
     /* no sessions? Then bail */
     if (max_sessions == 0)

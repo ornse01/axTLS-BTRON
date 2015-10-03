@@ -85,6 +85,10 @@ extern "C" {
 #define NUM_PROTOCOLS               4
 #endif
 
+#ifndef SSL_CTX_MUTEX_TYPE
+#define SSL_CTX_MUTEX_TYPE          ID
+#endif
+
 #define PARANOIA_CHECK(A, B)        if (A < B) { \
     ret = SSL_ERROR_INVALID_HANDSHAKE; goto error; }
 
@@ -135,7 +139,11 @@ typedef struct _SSLObjLoader SSLObjLoader;
 
 typedef struct 
 {
+#ifndef CONFIG_PLATFORM_BTRON
     time_t conn_time;
+#else
+    STIME conn_time;
+#endif
     uint8_t session_id[SSL_SESSION_ID_SIZE];
     uint8_t master_secret[SSL_SECRET_SIZE];
 } SSL_SESSION;

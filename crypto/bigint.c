@@ -60,11 +60,19 @@
  * @{
  */
 
+#include "config.h"
+#ifndef CONFIG_PLATFORM_BTRON
 #include <stdlib.h>
 #include <limits.h>
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#else
+#include <basic.h>
+#include <bstdlib.h>
+#include <bstring.h>
+#include <bstdio.h>
+#endif
 #include "os_port.h"
 #include "bigint.h"
 
